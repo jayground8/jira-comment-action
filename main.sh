@@ -16,7 +16,7 @@ JSON_PAYLOAD=$(cat <<EOF
           },
           {
             "text": "commit",
-            "type": "link",
+            "type": "text",
             "marks": [
               {
                 "type": "link",
