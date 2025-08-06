@@ -34,9 +34,15 @@ echo "Jira API URL: $API_URL"
 echo "JSON Payload: $JSON_PAYLOAD"
 
 # Make the API call to Jira
-RESPONSE=$(curl -s -w "%{http_code}" -X POST   --user "$JIRA_USER_EMAIL:$JIRA_API_KEY"   --header 'Accept: application/json'   --header 'Content-Type: application/json'   --data "$JSON_PAYLOAD"   "$API_URL")
-HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
-RESPONSE_BODY=$(echo "$RESPONSE" | sed '$d')
+RESPONSE_BODY_FILE=$(mktemp)
+HTTP_STATUS=$(curl -s -o "$RESPONSE_BODY_FILE" -w "%{http_code}" -X POST 
+  --user "$JIRA_USER_EMAIL:$JIRA_API_KEY" 
+  --header 'Accept: application/json' 
+  --header 'Content-Type: application/json' 
+  --data "$JSON_PAYLOAD" 
+  "$API_URL")
+RESPONSE_BODY=$(cat "$RESPONSE_BODY_FILE")
+rm "$RESPONSE_BODY_FILE"
 
 echo "Jira API Response: $RESPONSE_BODY"
 
