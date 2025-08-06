@@ -35,14 +35,14 @@ echo "JSON Payload: $JSON_PAYLOAD"
 
 # Make the API call to Jira
 RESPONSE_BODY_FILE=$(mktemp)
-HTTP_STATUS=$(curl -s -o "$RESPONSE_BODY_FILE" -w "%{http_code}" -X POST 
-  --user "$JIRA_USER_EMAIL:$JIRA_API_KEY" 
-  --header 'Accept: application/json' 
-  --header 'Content-Type: application/json' 
-  --data "$JSON_PAYLOAD" 
-  "$API_URL")
+HTTP_STATUS=$(curl -s -o "$RESPONSE_BODY_FILE" -w "%{http_code}" -X POST --user "$JIRA_USER_EMAIL:$JIRA_API_KEY" --header 'Accept: application/json' --header 'Content-Type: application/json' --data "$JSON_PAYLOAD" "$API_URL")
 RESPONSE_BODY=$(cat "$RESPONSE_BODY_FILE")
 rm "$RESPONSE_BODY_FILE"
+
+if [ -z "$HTTP_STATUS" ]; then
+  echo "Error: HTTP_STATUS is empty. Curl command might have failed."
+  exit 1
+fi
 
 echo "Jira API Response: $RESPONSE_BODY"
 
