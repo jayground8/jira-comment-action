@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x # Enable shell debugging
+
 # Construct the Jira API URL
 API_URL="https://$JIRA_INSTANCE/rest/api/3/issue/$ISSUE_KEY/comment"
 
@@ -28,11 +30,12 @@ JSON_PAYLOAD=$(cat <<EOF
 EOF
 )
 
+echo "Jira API URL: $API_URL"
+echo "JSON Payload: $JSON_PAYLOAD"
+
 # Make the API call to Jira
-curl -s -X POST \
-  --user "$JIRA_USER_EMAIL:$JIRA_API_KEY" \
-  --header 'Accept: application/json' \
-  --header 'Content-Type: application/json' \
-  --data "$JSON_PAYLOAD" \
-  "$API_URL"
+curl -X POST   --user "$JIRA_USER_EMAIL:$JIRA_API_KEY"   --header 'Accept: application/json'   --header 'Content-Type: application/json'   --data "$JSON_PAYLOAD"   "$API_URL"
+
+set +x # Disable shell debugging
+
 
