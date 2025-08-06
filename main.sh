@@ -3,7 +3,7 @@
 set -x # Enable shell debugging
 
 # Construct the Jira API URL
-API_URL="https://$JIRA_INSTANCE/rest/api/3/issue/$ISSUE_KEY/comment"
+API_URL="https://$JIRA_INSTANCE/rest/api/4/issue/$ISSUE_KEY/comment"
 
 # Construct the comment string
 COMMENT="$COMMITTER_USERNAME just pushed a commit to $REPOSITORY_NAME: [$COMMIT_MESSAGE]($COMMIT_URL)"
