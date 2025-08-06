@@ -1,5 +1,6 @@
 name: 'Jira Commenter'
 description: 'Adds a comment to a Jira issue with commit information.'
+
 inputs:
   jira_user_email:
     description: 'Email of the Jira user for authentication.'
@@ -13,30 +14,42 @@ inputs:
   issue_key_prefix:
     description: 'A comma-separated list of prefixes for Jira issue keys'
     required: false
+
 runs:
   using: 'composite'
   steps:
+    # This step checks out the repository's code so the action can access the git history.
+    - uses: actions/checkout@v4
+      with:
+        # Fetch all history for all branches and tags
+        fetch-depth: 0
+
+    # This step extracts information from the latest commit and finds the Jira issue key.
     - id: get_commit_info
       run: |
         COMMIT_MESSAGE=$(git log -1 --pretty=%B)
-        echo "COMMIT_MESSAGE=$COMMIT_MESSAGE" >> $GITHUB_ENV
+        echo "COMMIT_MESSAGE<<EOF" >> $GITHUB_ENV
+        echo "$COMMIT_MESSAGE" >> $GITHUB_ENV
+        echo "EOF" >> $GITHUB_ENV
+
         echo "COMMITTER_USERNAME=$(git log -1 --pretty=%an)" >> $GITHUB_ENV
         echo "COMMIT_URL=${{ github.server_url }}/${{ github.repository }}/commit/$(git rev-parse HEAD)" >> $GITHUB_ENV
 
+        JIRA_ISSUE_KEY=""
         if [[ -n "${{ inputs.issue_key_prefix }}" ]]; then
-          # Convert newline-separated prefixes into a regex OR pattern
-          PREFIX_REGEX=$(echo "${{ inputs.issue_key_prefix }}" | tr ',' '|' | sed 's/|$//')
-          JIRA_ISSUE_KEY=$(echo "$COMMIT_MESSAGE" | grep -oP "($PREFIX_REGEX)-[0-9]+" | head -n 1)
-          echo "jira_issue_key=$JIRA_ISSUE_KEY" >> $GITHUB_OUTPUT
-        else
-          echo "jira_issue_key=" >> $GITHUB_OUTPUT
+          # Convert comma-separated prefixes into a regex OR pattern, e.g., "PROJ,TEST" -> "(PROJ|TEST)"
+          PREFIX_REGEX=$((echo "${{ inputs.issue_key_prefix }}" | tr ',' '|') | sed -e 's/^/(/' -e 's/$/)/')
+          JIRA_ISSUE_KEY=$(echo "$COMMIT_MESSAGE" | grep -oE "${PREFIX_REGEX}-[0-9]+" | head -n 1)
         fi
+        echo "jira_issue_key=$JIRA_ISSUE_KEY" >> $GITHUB_OUTPUT
       shell: bash
 
-    - run: $GITHUB_ACTION_PATH/main.sh
+    # This step runs the main shell script to post the comment to Jira.
+    # It only runs if a Jira issue key was found in the previous step.
+    - name: Post comment to Jira
+      if: steps.get_commit_info.outputs.jira_issue_key != ''
+      run: $GITHUB_ACTION_PATH/main.sh
       shell: bash
-      if: |
-        ${{ steps.get_commit_info.outputs.jira_issue_key != '' }}
       env:
         JIRA_USER_EMAIL: ${{ inputs.jira_user_email }}
         JIRA_API_KEY: ${{ inputs.jira_api_key }}
