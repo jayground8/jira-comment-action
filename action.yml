@@ -14,6 +14,9 @@ inputs:
   issue_key_prefix:
     description: 'A comma-separated list of prefixes for Jira issue keys'
     required: false
+  commit_url_base:
+    description: 'The base URL for constructing commit URLs (e.g., https://your-git-server.com). If not provided, defaults to github.server_url.'
+    required: false
 
 runs:
   using: 'composite'
@@ -54,7 +57,11 @@ runs:
           COMMIT_SUBJECT="${COMMITS[i+2]}"
           COMMIT_MESSAGE="${COMMITS[i+3]}" # This will be the full message including subject
 
-          COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/$COMMIT_HASH"
+          if [[ -n "${{ inputs.commit_url_base }}" ]]; then
+            COMMIT_URL="${{ inputs.commit_url_base }}/${{ github.repository }}/commit/$COMMIT_HASH"
+          else
+            COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/$COMMIT_HASH"
+          fi
 
           JIRA_ISSUE_KEY=""
           if [[ -n "$PREFIX_REGEX" ]]; then
