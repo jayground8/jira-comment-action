@@ -34,7 +34,16 @@ echo "Jira API URL: $API_URL"
 echo "JSON Payload: $JSON_PAYLOAD"
 
 # Make the API call to Jira
-curl -X POST   --user "$JIRA_USER_EMAIL:$JIRA_API_KEY"   --header 'Accept: application/json'   --header 'Content-Type: application/json'   --data "$JSON_PAYLOAD"   "$API_URL"
+RESPONSE=$(curl -s -w "%{http_code}" -X POST   --user "$JIRA_USER_EMAIL:$JIRA_API_KEY"   --header 'Accept: application/json'   --header 'Content-Type: application/json'   --data "$JSON_PAYLOAD"   "$API_URL")
+HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+RESPONSE_BODY=$(echo "$RESPONSE" | sed '$d')
+
+echo "Jira API Response: $RESPONSE_BODY"
+
+if [ "$HTTP_STATUS" -ne "201" ]; then
+  echo "Error: Jira API request failed with status code $HTTP_STATUS."
+  exit 1
+fi
 
 set +x # Disable shell debugging
 
