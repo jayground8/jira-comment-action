@@ -11,7 +11,7 @@ inputs:
     description: 'URL of the Jira instance.'
     required: true
   issue_key_prefix:
-    description: 'A newline-separated list of prefixes for Jira issue keys'
+    description: 'A comma-separated list of prefixes for Jira issue keys'
     required: false
 runs:
   using: 'composite'
@@ -25,7 +25,7 @@ runs:
 
         if [[ -n "${{ inputs.issue_key_prefix }}" ]]; then
           # Convert newline-separated prefixes into a regex OR pattern
-          PREFIX_REGEX=$(echo "${{ inputs.issue_key_prefix }}" | tr '\n' '|' | sed 's/|$//')
+          PREFIX_REGEX=$(echo "${{ inputs.issue_key_prefix }}" | tr ',' '|' | sed 's/|$//')
           JIRA_ISSUE_KEY=$(echo "$COMMIT_MESSAGE" | grep -oP "($PREFIX_REGEX)-[0-9]+" | head -n 1)
           echo "jira_issue_key=$JIRA_ISSUE_KEY" >> $GITHUB_OUTPUT
         else
