@@ -1,12 +1,7 @@
 #!/bin/bash
 
-set -x # Enable shell debugging
-
 # Construct the Jira API URL
 API_URL="https://$JIRA_INSTANCE/rest/api/3/issue/$ISSUE_KEY/comment"
-
-# Construct the comment string
-COMMENT="$COMMITTER_USERNAME just pushed a commit to $REPOSITORY_NAME: [$COMMIT_MESSAGE]($COMMIT_URL)"
 
 # Construct the JSON payload in Atlassian Document Format
 JSON_PAYLOAD=$(cat <<EOF
@@ -16,7 +11,23 @@ JSON_PAYLOAD=$(cat <<EOF
       {
         "content": [
           {
-            "text": "$COMMENT",
+            "text": "$COMMITTER_USERNAME just pushed a ",
+            "type": "text"
+          },
+          {
+            "text": "commit",
+            "type": "link",
+            "marks": [
+              {
+                "type": "link",
+                "attrs": {
+                  "href": "$COMMIT_URL"
+                }
+              }
+            ]
+          },
+          {
+            "text": " to $REPOSITORY_NAME\n$COMMIT_MESSAGE",
             "type": "text"
           }
         ],
@@ -50,7 +61,3 @@ if [ "$HTTP_STATUS" -ne "201" ]; then
   echo "Error: Jira API request failed with status code $HTTP_STATUS."
   exit 1
 fi
-
-set +x # Disable shell debugging
-
-
