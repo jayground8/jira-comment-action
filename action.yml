@@ -24,38 +24,62 @@ runs:
         # Fetch all history for all branches and tags
         fetch-depth: 0
 
-    # This step extracts information from the latest commit and finds the Jira issue key.
-    - id: get_commit_info
+    - name: Process commits and post to Jira
       run: |
-        COMMIT_MESSAGE=$(git log -1 --pretty=%B)
-        echo "COMMIT_MESSAGE<<EOF" >> $GITHUB_ENV
-        echo "$COMMIT_MESSAGE" >> $GITHUB_ENV
-        echo "EOF" >> $GITHUB_ENV
+        BEFORE_SHA="${{ github.event.before.sha }}"
+        AFTER_SHA="${{ github.event.after.sha }}"
 
-        echo "COMMITTER_USERNAME=$(git log -1 --pretty=%an)" >> $GITHUB_ENV
-        echo "COMMIT_URL=${{ github.server_url }}/${{ github.repository }}/commit/$(git rev-parse HEAD)" >> $GITHUB_ENV
+        # Get all commit hashes, author names, subjects, and full messages between BEFORE_SHA and AFTER_SHA
+        # Format: <hash>%n<author>%n<subject>%n<body> (using %B for full message including subject)
+        # Use --no-merges to avoid processing merge commits if they don't contain direct changes
+        COMMIT_DETAILS=$(git log --pretty=format:"%H%n%an%n%s%n%B" --no-merges "$BEFORE_SHA".."$AFTER_SHA")
 
-        JIRA_ISSUE_KEY=""
-        if [[ -n "${{ inputs.issue_key_prefix }}" ]]; then
-          # Convert comma-separated prefixes into a regex OR pattern, e.g., "PROJ,TEST" -> "(PROJ|TEST)"
-          PREFIX_REGEX=$((echo "${{ inputs.issue_key_prefix }}" | tr ',' '|') | sed -e 's/^/(/' -e 's/$/)/')
-          JIRA_ISSUE_KEY=$(echo "$COMMIT_MESSAGE" | grep -oE "${PREFIX_REGEX}-[0-9]+" | head -n 1)
+        # Read issue_key_prefix from inputs
+        ISSUE_KEY_PREFIX="${{ inputs.issue_key_prefix }}"
+
+        # Convert comma-separated prefixes into a regex OR pattern, e.g., "PROJ,TEST" -> "(PROJ|TEST)"
+        if [[ -n "$ISSUE_KEY_PREFIX" ]]; then
+          PREFIX_REGEX=$(echo "$ISSUE_KEY_PREFIX" | tr ',' '|' | sed -e 's/^/(/' -e 's/$/)/')
+        else
+          PREFIX_REGEX=""
         fi
-        echo "jira_issue_key=$JIRA_ISSUE_KEY" >> $GITHUB_OUTPUT
-      shell: bash
 
-    # This step runs the main shell script to post the comment to Jira.
-    # It only runs if a Jira issue key was found in the previous step.
-    - name: Post comment to Jira
-      if: steps.get_commit_info.outputs.jira_issue_key != ''
-      run: $GITHUB_ACTION_PATH/main.sh
+        # Split commit details and process each commit
+        IFS=
+\n' read -d '' -r -a COMMITS <<< "$COMMIT_DETAILS"
+
+        for (( i=0; i<${#COMMITS[@]}; i+=4 )); do
+          COMMIT_HASH="${COMMITS[i]}"
+          COMMITTER_USERNAME="${COMMITS[i+1]}"
+          COMMIT_SUBJECT="${COMMITS[i+2]}"
+          COMMIT_MESSAGE="${COMMITS[i+3]}" # This will be the full message including subject
+
+          COMMIT_URL="${{ github.server_url }}/${{ github.repository }}/commit/$COMMIT_HASH"
+
+          JIRA_ISSUE_KEY=""
+          if [[ -n "$PREFIX_REGEX" ]]; then
+            JIRA_ISSUE_KEY=$(echo "$COMMIT_MESSAGE" | grep -oE "${PREFIX_REGEX}-[0-9]+" | head -n 1)
+          fi
+
+          if [[ -n "$JIRA_ISSUE_KEY" ]]; then
+            echo "Found Jira issue key: $JIRA_ISSUE_KEY for commit $COMMIT_HASH"
+            # Execute main.sh for each relevant commit
+            $GITHUB_ACTION_PATH/main.sh \
+              "$JIRA_USER_EMAIL" \
+              "$JIRA_API_KEY" \
+              "$JIRA_INSTANCE" \
+              "$JIRA_ISSUE_KEY" \
+              "$COMMITTER_USERNAME" \
+              "$COMMIT_MESSAGE" \
+              "$COMMIT_URL" \
+              "$REPOSITORY_NAME"
+          else
+            echo "No Jira issue key found for commit $COMMIT_HASH"
+          fi
+        done
       shell: bash
       env:
         JIRA_USER_EMAIL: ${{ inputs.jira_user_email }}
         JIRA_API_KEY: ${{ inputs.jira_api_key }}
         JIRA_INSTANCE: ${{ inputs.jira_instance }}
-        ISSUE_KEY: ${{ steps.get_commit_info.outputs.jira_issue_key }}
-        COMMITTER_USERNAME: ${{ env.COMMITTER_USERNAME }}
-        COMMIT_MESSAGE: ${{ env.COMMIT_MESSAGE }}
-        COMMIT_URL: ${{ env.COMMIT_URL }}
         REPOSITORY_NAME: ${{ github.repository }}

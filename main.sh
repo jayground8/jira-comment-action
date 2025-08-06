@@ -1,5 +1,15 @@
 #!/bin/bash
 
+# Assign arguments to variables
+JIRA_USER_EMAIL="$1"
+JIRA_API_KEY="$2"
+JIRA_INSTANCE="$3"
+ISSUE_KEY="$4"
+COMMITTER_USERNAME="$5"
+COMMIT_MESSAGE="$6"
+COMMIT_URL="$7"
+REPOSITORY_NAME="$8"
+
 # Construct the Jira API URL
 API_URL="https://$JIRA_INSTANCE/rest/api/3/issue/$ISSUE_KEY/comment"
 
